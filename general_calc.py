@@ -3,7 +3,7 @@ from tkinter import messagebox
 
 # Константы (poor man's config)
 WINDOW_TITLE = "Калькулятор"
-WINDOW_SIZE = "500x500"
+WINDOW_SIZE = "800x640"
 INPUT_LABEL = "Ввод выражения"
 RESULT_WINDOW_TITLE = "Результат вычисления"
 VALIDATION_ERROR_TITLE = "Ошибка ввода"
@@ -19,7 +19,16 @@ operators = {  # словарь операторов и их приоритет�
     "+": 0,
     "-": 0,
 }
-
+operations = {  # словарь операций и их приоритетов
+    "**": 1,
+    "e^": 1,
+    "sqrt": 1,
+    "log_e": 0,
+    "sin": 0,
+    "cos": 0,
+    "tan": 0,
+    "ctan": 0,
+}
 
 # Проверяет является ли X числом
 def is_int(x):
@@ -60,6 +69,11 @@ def parse_input():
 
         # Откр. скобка в стек
         elif symb == "(":
+            save_number()
+            operator_stack.append(symb)
+
+        # Добавляем операции в стек
+        elif i != len(input) and str(symb + input[i + 1]) in operations:
             save_number()
             operator_stack.append(symb)
 
@@ -140,7 +154,7 @@ def validate_input():
 
 
 # Общая функция клика для всех созданных кнопок
-def button_click(text):
+def button_click(text, value):
     if text == "=":
         (valid, err_message) = validate_input()
         if valid:
@@ -149,8 +163,12 @@ def button_click(text):
             messagebox.showerror(VALIDATION_ERROR_TITLE, err_message)
 
     # Очистка поля ввода
-    elif text == "C":
+    elif value == "C":
         input_entry.delete(0, "end")
+
+    # Стереть последний знак
+    elif value == "D":
+        input_entry.delete(len(input_entry.get()) - 1, "end")
 
     else:
         # Запись текста с кнопки в строку
@@ -158,9 +176,14 @@ def button_click(text):
 
 
 # Функция создания кнопок
-def create_button(text, row, col):
+def create_button(text, value, row, col):
     button = Button(
-        window, text=text, command=lambda: button_click(text), width=5, height=2
+        window,
+        text=text,
+        command=lambda: button_click(text, value),
+        width=5,
+        height=2,
+        font=("Arial", 16),
     )
     button.grid(row=row, column=col, padx=5, pady=5)
     return button
@@ -173,29 +196,33 @@ window.geometry(WINDOW_SIZE)
 window.resizable(False, False)
 
 
-# Все названия кнопок. Для каждой создается отдельная кнопка
+# Все ("названия":"внутренние_значения") кнопок. Для каждой создается отдельная кнопка
+# При парсинге изначальной строки названия будут заменяться на внутренние_значения
+# Внутренние значения нужны для простого парсинга операций по двум знакам
 button_labels = [
-    ["Del", "(", ")", "*"],
-    ["7", "8", "9", "/"],
-    ["4", "5", "6", "-"],
-    ["1", "2", "3", "+"],
-    ["C", "0", "=", "|x|"],
-    ["log_e", "e^", "^2", "sqrt"],
-    ["sin", "cos", "tan", "ctan"],
+    [("Del", "D"), ("(", "("), (")", ")"), ("*", "*")],
+    [("7", "7"), ("8", "8"), ("9", "9"), ("/", "/")],
+    [("4", "4"), ("5", "5"), ("6", "6"), ("-", "-")],
+    [("1", "1"), ("2", "2"), ("3", "3"), ("+", "+")],
+    [("C", "C"), ("0", "0"), ("=", "="), ("|x|", "||")],
+    [("log_e(x)", "le"), ("e^", "e^"), ("**", "**"), ("sqrt", "sq")],
+    [("sin", "sn"), ("cos", "cs"), ("tan", "tn"), ("ctan", "ct")],
 ]
 
 
 # Цикл создания кнопок
 for row in range(len(button_labels)):
     for col in range(len(button_labels[row])):
-        button = create_button(button_labels[row][col], row, col)
+        button = create_button(
+            button_labels[row][col][0], button_labels[row][col][1], row, col
+        )
 
 
 # Поля ввода
-input_label = Label(window, text=INPUT_LABEL)
+input_label = Label(window, text=INPUT_LABEL, font=("Arial", 16))
 input_label.grid(row=0, column=4)
 
-input_entry = Entry(window, width=40)
+input_entry = Entry(window, width=40, font=("Arial", 14))
 input_entry.grid(row=1, column=4)
 
 
