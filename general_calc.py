@@ -42,7 +42,9 @@ def save_number():
 
 # Основная функция парсинга инфиксной записи в ОПН
 def parse_input():
-    global num_buffer, operator_stack, operators
+    global num_buffer, operator_stack, operators, notation
+    # Очищаем рабочие переменные
+    notation, operator_stack, num_buffer = [], [], ""
 
     input = input_entry.get()
     print("Processing:", input)
@@ -52,8 +54,8 @@ def parse_input():
         # Числа добавляем в буфер
         if is_int(symb):
             num_buffer += symb
-            # Если это последняя цифра - то сохраняем число
-            if symb == input[-1]:
+            # Если это последняя цифра, то сохраняем число
+            if i == len(input) - 1:
                 save_number()
 
         # Откр. скобка в стек
@@ -94,9 +96,40 @@ def parse_input():
     print("- Notation is", notation)
     print("- Operator_stack is", operator_stack)
 
+
+def perform_operation(a, b, operation):
+    if operation == "+":
+        return a + b
+    elif operation == "-":
+        return a - b
+    elif operation == "*":
+        return a * b
+    elif operation == "/":
+        return int(a / b)
+
+
+def calculate_notation():
+    global notation
+    calc_stack = []  # стек вычислений выражения
+
+    for elem in notation:
+        if is_int(elem):
+            calc_stack.append(elem)
+
+        elif elem in operators:
+            b = calc_stack.pop()
+            a = calc_stack.pop()
+            result = perform_operation(a, b, elem)
+            calc_stack.append(result)
+
+    return calc_stack.pop()
+
+
 # Функция, запускающая процесс вычисления
 def calculate():
     parse_input()  # делаем нотацию
+    result = str(int(calculate_notation()))
+    messagebox.showinfo(RESULT_WINDOW_TITLE, result)
 
 
 # Функция с валидациями ввода. Возвращает кортеж из результата и сообщения ошибки
@@ -111,7 +144,7 @@ def button_click(text):
     if text == "=":
         (valid, err_message) = validate_input()
         if valid:
-            parse_input()
+            calculate()
         else:
             messagebox.showerror(VALIDATION_ERROR_TITLE, err_message)
 
