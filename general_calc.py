@@ -3,46 +3,111 @@ from tkinter import messagebox
 
 # Константы (poor man's config)
 WINDOW_TITLE = "Калькулятор"
-WINDOW_SIZE = '500x500'
+WINDOW_SIZE = "500x500"
 INPUT_LABEL = "Ввод выражения"
 RESULT_WINDOW_TITLE = "Результат вычисления"
 
+
 # Переменные
-input_stack = [] # Стек в обратной польской нотации
+num_buffer = ""  # буфер для учета многозначных чисел
+notation = []  # Стек с обратной польской нотацией
+# input_array = [] Массив с разделенными элементами выражения
+operator_stack = []  # Стек с операторами
+operators = {  # словарь операторов и их приоритетов
+    "*": 1,
+    "/": 1,
+    "+": 0,
+    "-": 0,
+}
 
-def show_result(result):
-    messagebox.showinfo(RESULT_WINDOW_TITLE, result)
 
-# Основная функция расчета
+# Проверяет является ли X числом
+def is_int(x):
+    try:
+        int(x)
+        return True
+    except:
+        return False
+
+
+def save_number():
+    global num_buffer, notation
+
+    if len(num_buffer) > 0:
+        notation.append(int(num_buffer))
+    num_buffer = ""
+    print("Number saved")
+
+
+def parse_input():
+    global num_buffer, operator_stack, operators
+
+    input = input_entry.get()
+    print("Processing:", input)
+    for i in range(len(input)):
+        symb = input[i]
+        # print("- processing symb:", symb)
+
+        if is_int(symb):
+            num_buffer += symb
+            # print(num_buffer)
+            # Если это последняя цифра - то сохраняем число
+            if symb == input[-1]:
+                save_number()
+
+        elif symb == "(":
+            save_number()
+            operator_stack.append(symb)
+
+        elif symb in operators:
+            save_number()
+            oper = symb
+            # Пока видим операторы в высшим приоритетом - переносим их в нотацию
+            while (
+                len(operator_stack) > 0
+                and operator_stack[-1] != "("  # вытаскиваем до откр. скобки
+                and operators[oper] <= operators[operator_stack[-1]]
+            ):
+                notation.append(operator_stack.pop())
+            operator_stack.append(symb)
+
+        elif symb == ")":
+            save_number()
+            while len(operator_stack) > 0 and operator_stack[-1] != "(":
+                notation.append(operator_stack.pop())
+            operator_stack.pop()  # удаление оставшейся открывающей скобки
+
+        else:
+            save_number()
+            print("unusued else triggered, symb is", symb)
+
+    while len(operator_stack) > 0:
+        notation.append(operator_stack.pop())
+
+    print("Parsing done:")
+    print("- Notation is", notation)
+    print("- Operator_stack is", operator_stack)
+
+
 def calculate():
-    for i in range(len(input_stack)):
-        elem = input_stack[i]
-        # Если elem число - скип, если операция - работаем
-        try:
-            number = int(elem)
-            continue
-        except:
-            result = int(input_stack[i-1]) + int(input_stack[i-2])
-    show_result(result)
+    parse_input()  # делаем нотацию
 
-def put_in_stack(element):
-    input_stack.append(element)
 
-# Функция по клику на любую кнопку
-def button_click(text, row, col):
-    if (text == "="):
-        calculate()
-    elif (text == ""):
-        pass
+def button_click(text):
+    if text == "=":
+        parse_input()
     else:
-        put_in_stack(text)
-    return
+        input_entry.insert(len(input_entry.get()), text)
 
-# Функция создания кнопок 
+
+# Функция создания кнопок
 def create_button(text, row, col):
-    button = Button(window, text=text, command= lambda: button_click(text, row, col), width=5, height=2)
+    button = Button(
+        window, text=text, command=lambda: button_click(text), width=5, height=2
+    )
     button.grid(row=row, column=col, padx=5, pady=5)
     return button
+
 
 # Создание окна приложения
 window = Tk()
@@ -50,19 +115,19 @@ window.title(WINDOW_TITLE)
 window.geometry(WINDOW_SIZE)
 window.resizable(False, False)
 
-buttons = [
+button_labels = [
     ["Del", "(", ")", "*"],
     ["7", "8", "9", "/"],
     ["4", "5", "6", "-"],
     ["1", "2", "3", "+"],
     ["C", "0", "=", "|x|"],
-    ["log_e(x)", "e^x", "x^2", "sqrt(x)"],
-    ["sin(x)", "cos(x)", "tan(x)", "ctan(x)"]
+    ["log_e", "e^", "^2", "sqrt"],
+    ["sin", "cos", "tan", "ctan"],
 ]
 
-for row in range(len(buttons)):
-    for col in range(len(buttons[row])):
-        button = create_button(buttons[row][col], row, col)
+for row in range(len(button_labels)):
+    for col in range(len(button_labels[row])):
+        button = create_button(button_labels[row][col], row, col)
 
 # Поля ввода
 input_label = Label(window, text=INPUT_LABEL)
