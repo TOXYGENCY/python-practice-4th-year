@@ -114,6 +114,11 @@ def button_click(text):
             parse_input()
         else:
             messagebox.showerror(VALIDATION_ERROR_TITLE, err_message)
+
+    # Очистка поля ввода
+    elif text == "C":
+        input_entry.delete(0, "end")
+
     else:
         # Запись текста с кнопки в строку
         input_entry.insert(len(input_entry.get()), text)
@@ -134,6 +139,7 @@ window.title(WINDOW_TITLE)
 window.geometry(WINDOW_SIZE)
 window.resizable(False, False)
 
+
 # Все названия кнопок. Для каждой создается отдельная кнопка
 button_labels = [
     ["Del", "(", ")", "*"],
@@ -145,10 +151,12 @@ button_labels = [
     ["sin", "cos", "tan", "ctan"],
 ]
 
+
 # Цикл создания кнопок
 for row in range(len(button_labels)):
     for col in range(len(button_labels[row])):
         button = create_button(button_labels[row][col], row, col)
+
 
 # Поля ввода
 input_label = Label(window, text=INPUT_LABEL)
@@ -156,6 +164,7 @@ input_label.grid(row=0, column=4)
 
 input_entry = Entry(window, width=40)
 input_entry.grid(row=1, column=4)
+
 
 # Вечный цикл отрисовки
 window.mainloop()
