@@ -6,12 +6,12 @@ WINDOW_TITLE = "Калькулятор"
 WINDOW_SIZE = "500x500"
 INPUT_LABEL = "Ввод выражения"
 RESULT_WINDOW_TITLE = "Результат вычисления"
+VALIDATION_ERROR_TITLE = "Ошибка ввода"
 
 
 # Переменные
-num_buffer = ""  # буфер для учета многозначных чисел
+num_buffer = ""  # Буфер для учета многозначных чисел
 notation = []  # Стек с обратной польской нотацией
-# input_array = [] Массив с разделенными элементами выражения
 operator_stack = []  # Стек с операторами
 operators = {  # словарь операторов и их приоритетов
     "*": 1,
@@ -30,15 +30,17 @@ def is_int(x):
         return False
 
 
+# Сохранение числа из накоплений буфера и его очистка
 def save_number():
     global num_buffer, notation
 
     if len(num_buffer) > 0:
         notation.append(int(num_buffer))
     num_buffer = ""
-    print("Number saved")
+    print("Number saved. Buffer cleared.")
 
 
+# Основная функция парсинга инфиксной записи в ОПН
 def parse_input():
     global num_buffer, operator_stack, operators
 
@@ -46,19 +48,20 @@ def parse_input():
     print("Processing:", input)
     for i in range(len(input)):
         symb = input[i]
-        # print("- processing symb:", symb)
 
+        # Числа добавляем в буфер
         if is_int(symb):
             num_buffer += symb
-            # print(num_buffer)
             # Если это последняя цифра - то сохраняем число
             if symb == input[-1]:
                 save_number()
 
+        # Откр. скобка в стек
         elif symb == "(":
             save_number()
             operator_stack.append(symb)
 
+        # Добавляем операторы в стек в порядке приоритетов
         elif symb in operators:
             save_number()
             oper = symb
@@ -71,16 +74,19 @@ def parse_input():
                 notation.append(operator_stack.pop())
             operator_stack.append(symb)
 
+        # По закрытии скобок переносим в нотацию все внутренние (упорядоченные) операторы
         elif symb == ")":
             save_number()
             while len(operator_stack) > 0 and operator_stack[-1] != "(":
                 notation.append(operator_stack.pop())
             operator_stack.pop()  # удаление оставшейся открывающей скобки
 
+        # Любой другой случай
         else:
             save_number()
             print("unusued else triggered, symb is", symb)
 
+    # После полного прохода по инфиксному вводу добавляем остатки (упорядоченных) операторов в нотацию
     while len(operator_stack) > 0:
         notation.append(operator_stack.pop())
 
@@ -88,15 +94,28 @@ def parse_input():
     print("- Notation is", notation)
     print("- Operator_stack is", operator_stack)
 
-
+# Функция, запускающая процесс вычисления
 def calculate():
     parse_input()  # делаем нотацию
 
 
+# Функция с валидациями ввода. Возвращает кортеж из результата и сообщения ошибки
+def validate_input():
+    if input_entry.get().count("(") != input_entry.get().count(")"):
+        return (False, "Перепроверьте все ли скобки закрыты/открыты.")
+    return (True, "")
+
+
+# Общая функция клика для всех созданных кнопок
 def button_click(text):
     if text == "=":
-        parse_input()
+        (valid, err_message) = validate_input()
+        if valid:
+            parse_input()
+        else:
+            messagebox.showerror(VALIDATION_ERROR_TITLE, err_message)
     else:
+        # Запись текста с кнопки в строку
         input_entry.insert(len(input_entry.get()), text)
 
 
@@ -115,6 +134,7 @@ window.title(WINDOW_TITLE)
 window.geometry(WINDOW_SIZE)
 window.resizable(False, False)
 
+# Все названия кнопок. Для каждой создается отдельная кнопка
 button_labels = [
     ["Del", "(", ")", "*"],
     ["7", "8", "9", "/"],
@@ -125,6 +145,7 @@ button_labels = [
     ["sin", "cos", "tan", "ctan"],
 ]
 
+# Цикл создания кнопок
 for row in range(len(button_labels)):
     for col in range(len(button_labels[row])):
         button = create_button(button_labels[row][col], row, col)
