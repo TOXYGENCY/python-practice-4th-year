@@ -181,7 +181,7 @@ def perform_operation(a, b, operation):
     elif operation == "^":
         return a**b
     elif operation == "--":
-        return -a
+        return a * -1
     elif operation == "sq":
         return a**0.5
     elif operation == "ln":
@@ -215,7 +215,7 @@ def calculate_notation():
             calc_stack.append(result)
 
         # Для унарных операций
-        elif elem in ["sq", "ln", "sn", "cs", "tn", "ct"]:
+        elif elem in ["--", "sq", "ln", "sn", "cs", "tn", "ct"]:
             a = calc_stack.pop()
             result = perform_operation(a, 0, elem)
             calc_stack.append(result)
