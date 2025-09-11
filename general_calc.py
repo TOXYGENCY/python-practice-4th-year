@@ -29,6 +29,7 @@ notation = []  # Стек с обратной польской нотацией
 operation_stack = []  # Стек с операторами
 operations = {  # словарь операций и их приоритетов
     "--": 3,  # Явный унарный минус
+    "abs": 2,  # модуль
     "^": 2,
     "sq": 2,  # sqrt
     "ln": 1,  # log_e
@@ -93,9 +94,9 @@ def parse_input():
     notation, operation_stack, num_buffer = [], [], ""
 
     input = convert_symbols(input_entry.get())
-
     print("Processing:", input)
     i = 0
+    abs_count = 0
     # Из-за изменения строки input, нельзя использовать фиксированный for
     while i < len(input):
         symb = input[i]
@@ -121,14 +122,17 @@ def parse_input():
             )
         ):
             save_number()
-            # Извращение чтобы задублировать унарный минус из "-" в явный "--"
-            # вставка доп "-" в разрыве
-            # input = input[0:i:1] + "-" + input[i + 1 : -1 : 1]
             operation_stack.append("--")
 
         # Откр. скобка в стек
         elif symb == "(":
             save_number()
+            operation_stack.append(symb)
+
+        # Четный (откр.) знак модуля в стек
+        elif symb == "|" and abs_count % 2 == 0:
+            save_number()
+            abs_count += 1
             operation_stack.append(symb)
 
         # Добавляем операции в стек. Проверяем по двум символам
@@ -143,11 +147,24 @@ def parse_input():
             # Пока видим операторы в высшим приоритетом - переносим их в нотацию
             while (
                 len(operation_stack) > 0
-                and operation_stack[-1] != "("  # вытаскиваем до откр. скобки
+                and (
+                    operation_stack[-1] != "(" or operation_stack[-1] != "|"
+                )  # вытаскиваем до откр. скобки или модуля
                 and operations[oper] <= operations[operation_stack[-1]]
             ):
                 notation.append(operation_stack.pop())
             operation_stack.append(symb)
+
+        # По закрытии модуля переносим в нотацию все внутренние (упорядоченные) операторы
+        elif symb == "|" and abs_count % 2 != 0:
+            save_number()
+            abs_count += 1
+            while len(operation_stack) > 0 and operation_stack[-1] != "|":
+                notation.append(operation_stack.pop())
+            notation.append(
+                "abs"
+            )  # добавление операции модуля в нотацию сразу после остальных
+            operation_stack.pop()  # удаление оставшегося открывающего модуля
 
         # По закрытии скобок переносим в нотацию все внутренние (упорядоченные) операторы
         elif symb == ")":
@@ -160,6 +177,7 @@ def parse_input():
         else:
             save_number()
             print("skipping symb", symb)
+
         i += 1
 
     # После полного прохода по инфиксному вводу добавляем остатки (упорядоченных) операторов в нотацию
@@ -185,6 +203,8 @@ def perform_operation(a, b, operation):
         return a**b
     elif operation == "--":
         return a * -1
+    elif operation == "abs":
+        return abs(a)
     elif operation == "sq":
         return a**0.5
     elif operation == "ln":
@@ -198,12 +218,14 @@ def perform_operation(a, b, operation):
     elif operation == "ct":
         return cos(radians(a)) / sin(radians(a))
 
-
+# Пошаговое вычисление готовой ОПН
 def calculate_notation():
     global notation
     calc_stack = []  # стек вычислений выражения
 
-    for elem in notation:
+    i = 0
+    while i <= len(notation) - 1:
+        elem = notation[i]
         a = 0
         b = 0
 
@@ -218,10 +240,12 @@ def calculate_notation():
             calc_stack.append(result)
 
         # Для унарных операций
-        elif elem in ["--", "sq", "ln", "sn", "cs", "tn", "ct"]:
+        elif elem in ["--", "sq", "ln", "sn", "cs", "tn", "ct", "abs"]:
             a = calc_stack.pop()
             result = perform_operation(a, 0, elem)
             calc_stack.append(result)
+
+        i += 1
 
     return calc_stack.pop()
 
@@ -229,14 +253,17 @@ def calculate_notation():
 # Функция, запускающая процесс вычисления
 def calculate():
     parse_input()  # делаем нотацию
-    result = str(int(calculate_notation()))
+    result = str(calculate_notation())
     messagebox.showinfo(RESULT_WINDOW_TITLE, result)
 
 
 # Функция с валидациями ввода. Возвращает кортеж из результата и сообщения ошибки
 def validate_input():
-    if input_entry.get().count("(") != input_entry.get().count(")"):
+    input = input_entry.get()
+    if input.count("(") != input.count(")"):
         return (False, "Перепроверьте все ли скобки закрыты/открыты.")
+    elif input.count("|") % 2 != 0:
+        return (False, "Перепроверьте все ли модули закрыты.")
     return (True, "")
 
 
@@ -302,5 +329,4 @@ input_entry.grid(row=1, column=4)
 # Вечный цикл отрисовки
 window.mainloop()
 
-# TODO: добавить временный буфер для операций таких как sq, чтобы сначала класть скобки и то что в них, а потом саму операцию
-# TODO: пофиксить унарный минус
+# TODO: добавить модуль
