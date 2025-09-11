@@ -76,12 +76,13 @@ def convert_symbols(text):
     return text
 
 
-# Cокращение проверки на спец символ для условий в parse_input()
-def is_special(current, last):
-    current = str(current)
+# Cокращение проверки предыдущ. на спец символ для условий в parse_input()
+def is_special(last):
+    global operations
+
     last = str(last)
-    is_oper = str(current + last) in operations
-    is_bracket = str(current + last) in ["(", ")", "|"]
+    is_oper = str(last) in operations
+    is_bracket = str(last) in ["(", ")", "|"]
     return is_oper or is_bracket
 
 
@@ -109,12 +110,14 @@ def parse_input():
 
         # Унарный минус. Либо по контексту, либо явный "--"
         elif (
-            ((i < len(input) - 1) and (symb == "-" == str(symb + input[i + 1])))
-            or ((i == 0) and (symb == "-"))
-            or (
+            (  # Явно задан "--"
+                (i < len(input) - 1) and (symb == "-" == str(symb + input[i + 1]))
+            )
+            or ((i == 0) and (symb == "-"))  # Неявный, но первый символ
+            or (  # стоит после оператора
                 (0 < i < len(input) - 1)
                 and (symb == "-")
-                and (is_special(symb, input[i - 1]))
+                and (is_special(input[i - 1]))
             )
         ):
             save_number()
@@ -181,7 +184,7 @@ def perform_operation(a, b, operation):
     elif operation == "^":
         return a**b
     elif operation == "--":
-        return -a
+        return a * -1
     elif operation == "sq":
         return a**0.5
     elif operation == "ln":
@@ -215,7 +218,7 @@ def calculate_notation():
             calc_stack.append(result)
 
         # Для унарных операций
-        elif elem in ["sq", "ln", "sn", "cs", "tn", "ct"]:
+        elif elem in ["--", "sq", "ln", "sn", "cs", "tn", "ct"]:
             a = calc_stack.pop()
             result = perform_operation(a, 0, elem)
             calc_stack.append(result)
