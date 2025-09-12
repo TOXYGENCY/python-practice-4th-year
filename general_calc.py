@@ -1,6 +1,6 @@
-from tkinter import *
+import tkinter as tk
 from tkinter import messagebox
-from math import e, log, sin, cos, tan, radians
+from math import log, sin, cos, tan, radians
 
 # Константы (poor man's config)
 WINDOW_TITLE = "Калькулятор"
@@ -8,6 +8,9 @@ WINDOW_SIZE = "320x600"
 INPUT_LABEL = "Ввод выражения"
 RESULT_WINDOW_TITLE = "Результат вычисления"
 VALIDATION_ERROR_TITLE = "Ошибка ввода"
+NOT_ENOUGH_OPERATORS_ERROR = (
+    "Укажите явные операторы возле всех скобок/модулей."
+)
 CALC_ERROR_TITLE = "Ошибка вычисления"
 CALC_ERROR_TEXT = "Во время вычислений произошла ошибка"
 OPERATIONS = {  # словарь операций и их приоритетов
@@ -25,16 +28,18 @@ OPERATIONS = {  # словарь операций и их приоритетов
     "+": 0,
     "-": 0,
 }
-# Все ("названия":"внутренние_значения") кнопок. Для каждой создается отдельная кнопка
-# При парсинге изначальной строки названия будут заменяться на внутренние_значения
+# Все ("названия":"внутренние_значения") кнопок.
+# Для каждой создается отдельная кнопка
+# При парсинге изначальной строки названия будут заменяться
+# на внутренние_значения
 # Внутренние значения нужны для простого парсинга операций по двум знакам
 BUTTON_LABELS = [
     [("(", "("), (")", ")"), ("^", "^"), ("*", "*")],
     [("7", "7"), ("8", "8"), ("9", "9"), ("/", "/")],
     [("4", "4"), ("5", "5"), ("6", "6"), ("-", "-")],
     [("1", "1"), ("2", "2"), ("3", "3"), ("+", "+")],
-    [("Del", "D"), ("0", "0"), ("=", "="), ("|", "|")],
-    [("C", "C"), ("ln(x)", "ln"), ("=", "="), ("sqrt(x)", "sq")],
+    [("Del", "D"), ("0", "0"), ("|", "|"), ("=", "=")],
+    [("C", "C"), ("ln(x)", "ln"), ("sqrt(x)", "sq")],
     [("sin(x)", "sn"), ("cos(x)", "cs"), ("tan(x)", "tn"), ("ctan(x)", "ct")],
 ]
 BG_COLOR = "#e4eaec"
@@ -58,13 +63,13 @@ def is_int(x):
     try:
         int(x)
         return True
-    except:
+    except ValueError:
         return False
 
 
 # Сохранение числа из накоплений буфера и его очистка
 def save_number():
-    global num_buffer, notation
+    global num_buffer
 
     if len(num_buffer) > 0:
         notation.append(int(num_buffer))
@@ -72,7 +77,7 @@ def save_number():
     print("Number saved. Buffer cleared.")
 
 
-# Конвертация строки ввода в укороченный стандартизированный вид перед обработкой
+# Конвертация строки ввода в укороченный стандартизир. вид перед обработкой
 def convert_symbols(text):
     text = str(text).replace("x", "1", -1)  # допущение
     text = str(text).replace("**", "^", -1)
@@ -88,17 +93,19 @@ def convert_symbols(text):
 
 # Cокращение проверки предыдущ. на спец символ для условий в parse_input()
 def is_special(last):
-    global OPERATIONS
-
     last = str(last)
     is_oper = last in OPERATIONS and last != "-"
     is_bracket = last in ["(", ")", "|"]
     return is_oper or is_bracket
 
 
+def is_binary_operator(symb):
+    return str(symb) in ["*", "^", "/", "+", "-"]
+
+
 # Основная функция парсинга инфиксной записи в ОПН
 def parse_input():
-    global num_buffer, operation_stack, OPERATIONS, notation
+    global num_buffer, operation_stack, notation
     # Очищаем рабочие переменные
     notation, operation_stack, num_buffer = [], [], ""
 
@@ -120,7 +127,8 @@ def parse_input():
         # Унарный минус. Либо по контексту, либо явный "--"
         elif (
             (  # Явно задан "--"
-                (i < len(input) - 1) and (symb == "-" == str(symb + input[i + 1]))
+                (i < len(input) - 1)
+                and (symb == "-" == str(symb + input[i + 1]))
             )
             or ((i == 0) and (symb == "-"))  # Неявный, но первый символ
             or (  # стоит после оператора
@@ -134,14 +142,44 @@ def parse_input():
 
         # Откр. скобка в стек
         elif symb == "(":
-            save_number()
-            operation_stack.append(symb)
+            last = str(input[i - 1])
+            last2 = str(input[i - 2])
+            # Проверка является ли предыдущий символ оператором или числом
+            if (
+                (0 < i < len(input) - 1)
+                and (is_int(last) or not (is_binary_operator(last)))
+                and not (last2 + last in OPERATIONS)  # исключ. для операций
+            ):
+                messagebox.showerror(
+                    VALIDATION_ERROR_TITLE, NOT_ENOUGH_OPERATORS_ERROR
+                )
+                break
+            else:
+                save_number()
+                operation_stack.append(symb)
 
         # Четный (откр.) знак модуля в стек
         elif symb == "|" and abs_count % 2 == 0:
-            save_number()
             abs_count += 1
-            operation_stack.append(symb)
+            last = str(input[i - 1])
+            last2 = str(input[i - 2])
+            # Проверка является ли предыдущий символ оператором или числом
+            if (
+                (0 < i < len(input) - 1)
+                and (
+                    is_int(last)
+                    or not (is_binary_operator(last))
+                    and abs_count % 2 != 0
+                )
+                and not (last2 + last in OPERATIONS)  # исключ. для операций
+            ):
+                messagebox.showerror(
+                    VALIDATION_ERROR_TITLE, NOT_ENOUGH_OPERATORS_ERROR
+                )
+                break
+            else:
+                save_number()
+                operation_stack.append(symb)
 
         # Добавляем операции в стек. Проверяем по двум символам
         elif i < len(input) - 1 and str(symb + input[i + 1]) in OPERATIONS:
@@ -152,33 +190,69 @@ def parse_input():
         elif symb in OPERATIONS:
             save_number()
             oper = symb
-            # Пока видим операторы в высшим приоритетом - переносим их в нотацию
+            # Пока видим операторы в высшим приоритетом - в нотацию
             while (
                 len(operation_stack) > 0
+                # вытаскиваем до откр. скобки/модуля
                 and operation_stack[-1] != "("
-                and operation_stack[-1] != "|"  # вытаскиваем до откр. скобки или модуля
-                and OPERATIONS[oper] <= OPERATIONS[operation_stack[-1]]  # приоритеты
+                and operation_stack[-1] != "|"
+                # приоритеты
+                and OPERATIONS[oper] <= OPERATIONS[operation_stack[-1]]
             ):
                 notation.append(operation_stack.pop())
             operation_stack.append(symb)
 
-        # По закрытии модуля переносим в нотацию все внутренние (упорядоченные) операторы
+        # По закрытии модуля переносим в нотацию все внутр. (упоряд.) операторы
         elif symb == "|" and abs_count % 2 != 0:
-            save_number()
-            abs_count += 1
-            while len(operation_stack) > 0 and operation_stack[-1] != "|":
-                notation.append(operation_stack.pop())
-            notation.append(
-                "abs"
-            )  # добавление операции модуля в нотацию сразу после остальных
-            operation_stack.pop()  # удаление оставшегося открывающего модуля
+            # Проверка является ли следующий символ оператором или числом
+            if (
+                (0 < i < len(input) - 2)
+                and (
+                    is_int(input[i + 1])
+                    or not (is_binary_operator(input[i + 1]))
+                )
+                and not (  # исключ. для операций и скобок/модулей
+                    (str(input[i + 1]) in [")", "|"])
+                    or (str(input[i + 1]) + str(input[i + 2])) in OPERATIONS
+                )
+            ):
+                messagebox.showerror(
+                    VALIDATION_ERROR_TITLE, NOT_ENOUGH_OPERATORS_ERROR
+                )
+                break
+            else:
+                save_number()
+                abs_count += 1
+                while len(operation_stack) > 0 and operation_stack[-1] != "|":
+                    notation.append(operation_stack.pop())
+                notation.append(
+                    "abs"
+                )  # добавление операции модуля в нотацию сразу после остальных
+                operation_stack.pop()  # удаление оставшегося откр. модуля
 
-        # По закрытии скобок переносим в нотацию все внутренние (упорядоченные) операторы
+        # По закрытии скобок переносим в нотацию все внутр. (упоряд.) операторы
         elif symb == ")":
-            save_number()
-            while len(operation_stack) > 0 and operation_stack[-1] != "(":
-                notation.append(operation_stack.pop())
-            operation_stack.pop()  # удаление оставшейся открывающей скобки
+            # Проверка является ли следующий символ оператором или числом
+            if (
+                (0 < i < len(input) - 2)  # запас в 2 символа после этого
+                and (
+                    is_int(input[i + 1])
+                    or not (is_binary_operator(input[i + 1]))
+                )
+                and not (  # исключ. для операций и скобок/модулей
+                    (str(input[i + 1]) in [")", "|"])
+                    or (str(input[i + 1]) + str(input[i + 2])) in OPERATIONS
+                )
+            ):
+                messagebox.showerror(
+                    VALIDATION_ERROR_TITLE, NOT_ENOUGH_OPERATORS_ERROR
+                )
+                break
+            else:
+                save_number()
+                while len(operation_stack) > 0 and operation_stack[-1] != "(":
+                    notation.append(operation_stack.pop())
+                operation_stack.pop()  # удаление оставшейся открывающей скобки
 
         # Любой другой случай
         else:
@@ -187,7 +261,8 @@ def parse_input():
 
         i += 1
 
-    # После полного прохода по инфиксному вводу добавляем остатки (упорядоченных) операторов в нотацию
+    # После полного прохода по инфиксному вводу добавляем
+    # остатки (упорядоченных) операторов в нотацию
     while len(operation_stack) > 0:
         notation.append(operation_stack.pop())
 
@@ -195,7 +270,8 @@ def parse_input():
     print("- Notation is", notation)
     print("- Operator_stack is", operation_stack)
 
-# Выполнение операции над одним/двумя операндами (как же хочется eval или хотя бы switch-case...)
+
+# Выполнение операции над одним/двумя операндами
 def perform_operation(a, b, operation):
     print(f"...calculating {a} {operation} {b}")
     if operation == "+":
@@ -225,9 +301,9 @@ def perform_operation(a, b, operation):
     elif operation == "ct":
         return 1 / tan(radians(a))
 
+
 # Пошаговое вычисление готовой ОПН
 def calculate_notation():
-    global notation
     calc_stack = []  # стек вычислений выражения
 
     i = 0
@@ -269,7 +345,8 @@ def calculate():
         raise ex
 
 
-# Функция с валидациями ввода. Возвращает кортеж из результата и сообщения ошибки
+# Функция с валидациями ввода.
+# Возвращает кортеж из результата и сообщения ошибки
 def validate_input():
     input = input_entry.get()
     if input.count("(") != input.count(")"):
@@ -305,6 +382,8 @@ def button_click(text, value):
 def create_button(text, value, row, col):
     bg_color = BG_COLOR_BUTTON
     fg_color = FG_COLOR
+    rowspan = 1
+    height = 2
 
     if value in ["C", "D"]:
         bg_color = BG_COLOR_SPECIAL
@@ -313,13 +392,15 @@ def create_button(text, value, row, col):
         bg_color = BG_COLOR_NUMBER
     elif value == "=":
         bg_color = BG_COLOR_CALC
+        rowspan = 2
+        height = 5
 
-    button = Button(
+    button = tk.Button(
         window,
         text=text,
         command=lambda: button_click(text, value),
         width=5,
-        height=2,
+        height=height,
         font=("Arial", 16),
         activeforeground=FG_COLOR_ACTIVE,
         activebackground=BG_COLOR_ACTIVE,
@@ -327,12 +408,12 @@ def create_button(text, value, row, col):
         background=bg_color,
         foreground=fg_color,
     )
-    button.grid(row=row, column=col, padx=4, pady=4)
+    button.grid(row=row, column=col, rowspan=rowspan, padx=4, pady=4)
     return button
 
 
 # Создание окна приложения
-window = Tk()
+window = tk.Tk()
 window.title(WINDOW_TITLE)
 window.geometry(WINDOW_SIZE)
 window.resizable(False, False)
@@ -352,10 +433,12 @@ for row in range(len(BUTTON_LABELS)):
 
 
 # Поля ввода
-input_label = Label(window, text=INPUT_LABEL, font=("Arial", 14), background=BG_COLOR)
+input_label = tk.Label(
+    window, text=INPUT_LABEL, font=("Arial", 14), background=BG_COLOR
+)
 input_label.grid(row=0, column=0, columnspan=4, padx=5)
 
-input_entry = Entry(window, width=27, font=("Arial", 14))
+input_entry = tk.Entry(window, width=27, font=("Arial", 14))
 input_entry.grid(row=1, column=0, columnspan=4, pady=8)
 
 # Вечный цикл отрисовки
